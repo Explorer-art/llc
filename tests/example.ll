@@ -2,20 +2,9 @@
 ; LL
 ;
 
-def test (y) -> (y)
+def 1 (f, x) -> (f(x))
+def 2 (f, x) -> (f(f(x)))
 
-def main(f, x) -> (test(test))
+def + (m, n, f, x) -> (m(f, n(f, x)))
 
-
-;
-; NASM
-;
-
-test:
-	mov ax, [sp + 2]
-	ret
-
-main:
-	push test
-	call test
-	ret
+def main (f, x) -> (+(1, 2))

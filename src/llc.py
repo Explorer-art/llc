@@ -3,6 +3,21 @@ import sys
 import json
 import argparse
 
+STD_ASSEMBLY ="""bits 16
+
+f:
+    push bp
+    mov bp, sp
+    mov ax, [bp + 4]
+    inc ax
+    mov sp, bp
+    pop bp
+    ret
+
+x:
+    ret
+"""
+
 def load_file(filename):
 	if not os.path.exists(filename):
 		print("File not exists")
@@ -64,30 +79,33 @@ def tokenize(code):
 	return tokens
 
 def parse(tokens):
-	ast = {
-		"program": []
-	}
+	ast = {}
 
 	i = 0
 
 	while i < len(tokens):
 		if tokens[i] == "def" and len(tokens) > i + 4:
-			function_id = tokens[i + 1]
+			func_id = tokens[i + 1]
 
-			if function_id in ast["program"]:
-				print(f"Error: {function_id} redefined")
+			if func_id in ast:
+				print(f"Error: function {func_id} redefined")
 				return
 
-			function_input = tokens[i + 2]
-			function_output = tokens[i + 4]
+			# Убираем скобки
+			func_input = tokens[i + 2][1:][:-1]
 
-			function = {
-				"def": function_id,
-				"input": function_input,
-				"output": function_output
+			# Преобразуем строку в массив
+			if func_input:
+				func_input = func_input.split(",")
+			else:
+				func_input = None
+
+			func_output = tokens[i + 4][1:][:-1]
+
+			ast[func_id] = {
+				"input": func_input,
+				"output": func_output
 			}
-
-			ast["program"].append(function)
 
 			i += 4
 			continue
@@ -96,8 +114,51 @@ def parse(tokens):
 
 	return ast
 
-def inline_function(functions, function_id):
-	pass
+def call_function(ast, assembly, func_id, _input):
+	if not func_id in ast:
+		print(f"Error: function {func_id} undefined")
+		sys.exit()
+
+	func_input = ast[func_id]["input"]
+
+	# Проверяем количество аргументов
+	if len(_input) < len(func_input):
+		print(f"Error: function {func_id} missing {len(func_input) - len(_input)} argument")
+		sys.exit()
+	elif len(_input) > len(func_input):
+		print(f"Error: function {func_id} takes {len(func_input)} argument, but {len(_input) - len(func_input)} were given")
+		sys.exit()
+
+	func_output = ast[func_id]["output"]
+
+	# Заменяем аргументы на переданные значения
+	for i, arg in enumerate(func_input):
+		func_output = func_output.replace(arg, _input[i])
+
+	buffer = ""
+	count_parents = 0
+
+	for char in func_output:
+		if char == "(":
+			count_parents += 1
+
+			_func_id = buffer
+			buffer = ""
+
+			print(_func_id)
+
+			call_function(ast, assembly, _func_id, ast[_func_id]["input"])
+		else:
+			buffer += char
+
+def generate_assembly(ast):
+	assembly = STD_ASSEMBLY
+
+	for func_id in ast:
+		print(func_id)
+		assembly += f"{func_id}:\n"
+
+	return assembly
 
 def compiler(filename):
 	code = load_file(filename)
@@ -126,10 +187,19 @@ def compiler(filename):
 	print("AST:")
 	print(json.dumps(ast, indent=4))
 
+	assembly = generate_assembly(ast)
+
+	print("Assembly:")
+	print(assembly)
+
+	with open(args.output_file, "w") as file:
+		file.write(assembly)
+
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 
 	parser.add_argument("input_file", type=str, help="Input file")
+	parser.add_argument("-o", "--output_file", type=str, default="output.asm", help="Output file")
 
 	args = parser.parse_args()
 

@@ -3,20 +3,24 @@ import sys
 import json
 import argparse
 
+# Стандартный шаблон программы на ассемблере
 STD_ASSEMBLY ="""bits 16
 
 f:
-    push bp
-    mov bp, sp
-    mov ax, [bp + 4]
-    inc ax
-    mov sp, bp
-    pop bp
-    ret
+push bp
+mov bp, sp
+mov ax, [bp + 4]
+inc ax
+mov sp, bp
+pop bp
+ret
 
 x:
-    ret
+ret
 """
+
+# Внешние функции
+EXTERNAL_FUNCTIONS_IDS = ["f", "x"]
 
 def load_file(filename):
 	if not os.path.exists(filename):
@@ -88,7 +92,7 @@ def parse(tokens):
 			func_id = tokens[i + 1]
 
 			if func_id in ast:
-				print(f"Error: function {func_id} redefined")
+				print(f"Error: function '{func_id}' redefined")
 				return
 
 			# Убираем скобки
@@ -114,55 +118,81 @@ def parse(tokens):
 
 	return ast
 
-def call_function(ast, assembly, func_id, _input):
-	if not func_id in ast:
-		print(f"Error: function {func_id} undefined")
-		sys.exit()
-
-	func_input = ast[func_id]["input"]
-
-	# Проверяем количество аргументов
-	if len(_input) < len(func_input):
-		print(f"Error: function {func_id} missing {len(func_input) - len(_input)} argument")
-		sys.exit()
-	elif len(_input) > len(func_input):
-		print(f"Error: function {func_id} takes {len(func_input)} argument, but {len(_input) - len(func_input)} were given")
-		sys.exit()
-
-	func_output = ast[func_id]["output"]
-
-	# Заменяем аргументы на переданные значения
-	for i, arg in enumerate(func_input):
-		func_output = func_output.replace(arg, _input[i])
-
+def get_internal_function(ast, func_output):
 	buffer = ""
+	func_id = ""
+	function = None
 	count_parents = 0
 
-	for char in func_output:
+	for i, char in enumerate(func_output):
 		if char == "(":
 			count_parents += 1
 
-			_func_id = buffer
+			func_id = buffer
 			buffer = ""
+		elif char == ")":
+			count_parents -= 1
 
-			print(_func_id)
+			# Проверка существования функции
+			if not func_id in ast and not func_id in EXTERNAL_FUNCTIONS_IDS:
+				print(f"Error: function '{func_id}' undefined")
+				sys.exit()
 
-			call_function(ast, assembly, _func_id, ast[_func_id]["input"])
+			# Проверяем существуют ли аргументы
+			if not buffer:
+				print(f"Error: function '{func_id}' not args")
+				sys.exit()
+
+			# Получаем аргументы функции
+			func_input = buffer.split(",")
+
+			function = {
+				"id": func_id,
+				"input": func_input
+			}
+
+			# Удаляем вызов функции из output
+			substring = func_output[:i]
+			left_index = substring.rfind("(")
+
+			if left_index == -1:
+				print("Error: left parent not found")
+				sys.exit()
+
+			substring = func_output[:left_index]
+
+			left_arg_index = substring.rfind(",")
+			left_func_index = substring.rfind("(")
+
+			if left_arg_index > left_func_index:
+				left_index = left_arg_index
+			else:
+				left_index = left_func_index
+
+			func_output = func_output[:left_index + 1] + "ax" + func_output[i + 1:]
+
+			break
+		elif char == ",":
+			buffer = ""
 		else:
 			buffer += char
+
+	return function, func_output
 
 def generate_assembly(ast):
 	assembly = STD_ASSEMBLY
 
 	for func_id in ast:
-		print(func_id)
 		assembly += f"{func_id}:\n"
+		assembly += "push bp\n"
+		assembly += "mov bp, sp\n"
+
+		# func, func_output = get_internal_function(ast, ast[func_id]["output"])
+		# print(func, func_output)
 
 	return assembly
 
-def compiler(filename):
-	code = load_file(filename)
-
+def compiler(code):
 	print("Source code:")
 	print(code)
 	print("")
@@ -203,4 +233,6 @@ if __name__ == "__main__":
 
 	args = parser.parse_args()
 
-	compiler(args.input_file)
+	code = load_file(args.input_file)
+
+	compiler(code)

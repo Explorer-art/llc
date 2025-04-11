@@ -3,8 +3,8 @@ import sys
 import json
 import argparse
 
-# Стандартный шаблон программы на ассемблере
-STD_ASSEMBLY ="""bits 16
+# Стандартный шаблон кода на ассемблере
+assembly ="""bits 16
 
 f:
 push bp
@@ -17,10 +17,15 @@ ret
 
 x:
 ret
+
 """
 
 # Внешние функции
 EXTERNAL_FUNCTIONS_IDS = ["f", "x"]
+
+# Стандартное смещение в стеке
+# (с учетом того, что перед вызовом функции мы сохраняем в стек регистр BP)
+DEFAULT_STACK_ARGS_OFFSET = 2
 
 def load_file(filename):
 	if not os.path.exists(filename):
@@ -45,9 +50,6 @@ def preprocessor(code):
 
 		if line.strip():
 			processed_code += line + "\n"
-
-	i = 0
-	buffer = ""
 
 	return processed_code
 
@@ -83,7 +85,16 @@ def tokenize(code):
 	return tokens
 
 def parse(tokens):
-	ast = {}
+	ast = {
+		"f": {
+			"input": ["x"],
+			"output": "x"
+		},
+		"x": {
+			"input": None,
+			"output": ""
+		}
+	}
 
 	i = 0
 
@@ -102,7 +113,7 @@ def parse(tokens):
 			if func_input:
 				func_input = func_input.split(",")
 			else:
-				func_input = None
+				func_input = []
 
 			func_output = tokens[i + 4][1:][:-1]
 
@@ -118,7 +129,7 @@ def parse(tokens):
 
 	return ast
 
-def get_internal_function(ast, func_output):
+def get_internal_function(ast, func_input, func_output):
 	buffer = ""
 	func_id = ""
 	function = None
@@ -128,27 +139,31 @@ def get_internal_function(ast, func_output):
 		if char == "(":
 			count_parents += 1
 
+			# Удаляем другие аргументы функции
+			substring = buffer[:i]
+			left_arg_index = substring.rfind(",")
+			buffer = buffer[left_arg_index + 1:]
+
 			func_id = buffer
 			buffer = ""
 		elif char == ")":
 			count_parents -= 1
 
 			# Проверка существования функции
-			if not func_id in ast and not func_id in EXTERNAL_FUNCTIONS_IDS:
+			if func_input and not func_id in func_input and not func_id in ast:
 				print(f"Error: function '{func_id}' undefined")
 				sys.exit()
 
-			# Проверяем существуют ли аргументы
-			if not buffer:
-				print(f"Error: function '{func_id}' not args")
+			if not func_input and not func_id in ast:
+				print(f"Error: function '{func_id}' undefined")
 				sys.exit()
 
 			# Получаем аргументы функции
-			func_input = buffer.split(",")
+			_func_input = buffer.split(",")
 
 			function = {
 				"id": func_id,
-				"input": func_input
+				"input": _func_input
 			}
 
 			# Удаляем вызов функции из output
@@ -172,25 +187,83 @@ def get_internal_function(ast, func_output):
 			func_output = func_output[:left_index + 1] + "ax" + func_output[i + 1:]
 
 			break
-		elif char == ",":
-			buffer = ""
 		else:
 			buffer += char
 
 	return function, func_output
 
+def unfold_calls(ast, func_id, func_output, original_input):
+	global assembly
+
+	function, _func_output = get_internal_function(ast, original_input, func_output)
+
+	print(f"DEBUG: {func_id}:", function, _func_output)
+
+	if function:
+		for arg in function["input"][::-1]:
+			# Проверяем есть ли значение в аргументах функции, иначе ассоциируем
+			# его с функцией объявленной с помощью def
+			if arg in original_input:
+				arg_index = original_input.index(arg)
+				arg_offset = 2 + arg_index * len(original_input)
+
+				assembly += f"mov bx, [bp + {DEFAULT_STACK_ARGS_OFFSET + arg_offset}]\n"
+				assembly += "push bx\n"
+			elif arg in ast:
+				if arg in EXTERNAL_FUNCTIONS_IDS:
+					assembly += f"mov bx, {arg}\n"
+					assembly += "push bx\n"
+				else:
+					assembly += f"mov bx, _{arg}\n"
+					assembly += "push bx\n"
+			elif arg == "ax":
+				assembly += "push ax\n"
+			else:
+				print(f"Compile error: {arg} undefined")
+				sys.exit()
+
+		if function["id"] in original_input:
+			arg_index = original_input.index(function["id"])
+			arg_offset = 2 + arg_index * len(original_input)
+
+			assembly += f"call [bp + {DEFAULT_STACK_ARGS_OFFSET + arg_offset}]\n"
+		else:
+			if function["id"] in EXTERNAL_FUNCTIONS_IDS:
+				assembly += f"call {function["id"]}\n"
+			else:
+				assembly += f"call _{function["id"]}\n"
+
+		if _func_output == "ax":
+			assembly += "mov sp, bp\n"
+			assembly += "pop bp\n"
+			assembly += "ret\n\n"
+			return
+
+	# if function:
+	# 	for i, arg in enumerate(original_input):
+	# 		func_output = func_output.replace(arg, function["input"][i])
+
+	if not "(" in func_output or not ")" in func_output:
+		assembly += "ret\n\n"
+		return
+
+	unfold_calls(ast, func_id, _func_output, original_input)
+
 def generate_assembly(ast):
-	assembly = STD_ASSEMBLY
+	global assembly
 
 	for func_id in ast:
-		assembly += f"{func_id}:\n"
+		# Если это внешняя функция, то пропускаем её, так как её код изначально есть в программе
+		if func_id in EXTERNAL_FUNCTIONS_IDS:
+			continue
+
+		# Знак нижнего подчеркивания добавляет что бы избежать ошибок при компиляции ассемблера
+		# так как в NASM нельзя что бы функции начинались с цифр
+		assembly += f"_{func_id}:\n"
 		assembly += "push bp\n"
 		assembly += "mov bp, sp\n"
 
-		# func, func_output = get_internal_function(ast, ast[func_id]["output"])
-		# print(func, func_output)
-
-	return assembly
+		unfold_calls(ast, func_id, ast[func_id]["output"], ast[func_id]["input"])
 
 def compiler(code):
 	print("Source code:")
@@ -217,7 +290,7 @@ def compiler(code):
 	print("AST:")
 	print(json.dumps(ast, indent=4))
 
-	assembly = generate_assembly(ast)
+	generate_assembly(ast)
 
 	print("Assembly:")
 	print(assembly)

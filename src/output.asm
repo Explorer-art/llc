@@ -11,16 +11,59 @@ ret
 
 x:
 ret
-1:
+
+_0:
 push bp
 mov bp, sp
-mov bx, [bp + 4]mov bx, [bp + 6]2:
+ret
+
+_1:
 push bp
 mov bp, sp
-mov bx, [bp + 4]mov bx, [bp + 6]+:
+mov bx, [bp + 6]
+push bx
+call [bp + 4]
+mov sp, bp
+pop bp
+ret
+
+_2:
 push bp
 mov bp, sp
-mov bx, [bp + 4]mov bx, [bp + 6]mov bx, [bp + 8]mov bx, [bp + 10]main:
+mov bx, [bp + 6]
+push bx
+call [bp + 4]
+push ax
+call [bp + 4]
+mov sp, bp
+pop bp
+ret
+
+_add:
 push bp
 mov bp, sp
-mov bx, [bp + 4]mov bx, [bp + 6]
+mov bx, x
+push bx
+mov bx, f
+push bx
+call [bp + 6]
+push ax
+mov bx, f
+push bx
+call [bp + 4]
+mov sp, bp
+pop bp
+ret
+
+_main:
+push bp
+mov bp, sp
+mov bx, _2
+push bx
+mov bx, _1
+push bx
+call _add
+mov sp, bp
+pop bp
+ret
+

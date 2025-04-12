@@ -1,10 +1,12 @@
-import os
 import sys
-import json
-import argparse
 
 # Стандартный шаблон кода на ассемблере
 assembly ="""bits 16
+org 0x7C00
+
+%define x 0
+
+jmp _main
 
 f:
 push bp
@@ -15,10 +17,9 @@ mov sp, bp
 pop bp
 ret
 
-x:
-ret
-
 """
+
+ENTRY_POINT = "main"
 
 # Внешние функции
 EXTERNAL_FUNCTIONS_IDS = ["f", "x"]
@@ -26,108 +27,6 @@ EXTERNAL_FUNCTIONS_IDS = ["f", "x"]
 # Стандартное смещение в стеке
 # (с учетом того, что перед вызовом функции мы сохраняем в стек регистр BP)
 DEFAULT_STACK_ARGS_OFFSET = 2
-
-def load_file(filename):
-	if not os.path.exists(filename):
-		print("File not exists")
-		sys.exit(1)
-
-	with open(filename, "r") as file:
-		data = file.read()
-
-	return data
-
-def preprocessor(code):
-	processed_code = ""
-	lines = code.split("\n")
-
-	# Удаляем все комментарии
-	for line in lines:
-		comment_index = line.find(";")
-
-		if comment_index != -1:
-			line = line[:comment_index].rstrip()
-
-		if line.strip():
-			processed_code += line + "\n"
-
-	return processed_code
-
-def tokenize(code):
-	tokens = []
-	buffer = ""
-	count_parents = 0
-
-	for char in code:
-		if (char == " " or char == "\n" or char == "\t") and not count_parents:
-			if buffer:
-				tokens.append(buffer)
-				buffer = ""
-		elif char == " " or char == "\n" or char == "\t":
-			continue
-		elif char == "(":
-			count_parents += 1
-			buffer += char
-		elif char == ")":
-			count_parents -= 1
-
-			buffer += char
-
-			if not count_parents:
-				tokens.append(buffer)
-				buffer = ""
-		else:
-			buffer += char
-
-	if buffer:
-		tokens.append(buffer)
-
-	return tokens
-
-def parse(tokens):
-	ast = {
-		"f": {
-			"input": ["x"],
-			"output": "x"
-		},
-		"x": {
-			"input": None,
-			"output": ""
-		}
-	}
-
-	i = 0
-
-	while i < len(tokens):
-		if tokens[i] == "def" and len(tokens) > i + 4:
-			func_id = tokens[i + 1]
-
-			if func_id in ast:
-				print(f"Error: function '{func_id}' redefined")
-				return
-
-			# Убираем скобки
-			func_input = tokens[i + 2][1:][:-1]
-
-			# Преобразуем строку в массив
-			if func_input:
-				func_input = func_input.split(",")
-			else:
-				func_input = []
-
-			func_output = tokens[i + 4][1:][:-1]
-
-			ast[func_id] = {
-				"input": func_input,
-				"output": func_output
-			}
-
-			i += 4
-			continue
-
-		i += 1
-
-	return ast
 
 def get_internal_function(ast, func_input, func_output):
 	buffer = ""
@@ -236,12 +135,16 @@ def unfold_calls(ast, func_id, func_output, original_input):
 		if _func_output == "ax":
 			assembly += "mov sp, bp\n"
 			assembly += "pop bp\n"
-			assembly += "ret\n\n"
-			return
 
-	# if function:
-	# 	for i, arg in enumerate(original_input):
-	# 		func_output = func_output.replace(arg, function["input"][i])
+			# Если это главная функция (точка входа) то после выполнения программы
+			# отключаем прерывания и останавливаем процессор
+			if func_id == ENTRY_POINT:
+				assembly += "cli\n"
+				assembly += "hlt\n\n"
+			else:
+				assembly += "ret\n\n"
+
+			return
 
 	if not "(" in func_output or not ")" in func_output:
 		assembly += "ret\n\n"
@@ -252,6 +155,7 @@ def unfold_calls(ast, func_id, func_output, original_input):
 def generate_assembly(ast):
 	global assembly
 
+	# Генерируем код каждой функции
 	for func_id in ast:
 		# Если это внешняя функция, то пропускаем её, так как её код изначально есть в программе
 		if func_id in EXTERNAL_FUNCTIONS_IDS:
@@ -265,47 +169,7 @@ def generate_assembly(ast):
 
 		unfold_calls(ast, func_id, ast[func_id]["output"], ast[func_id]["input"])
 
-def compiler(code):
-	print("Source code:")
-	print(code)
-	print("")
+	assembly += "times 510 - ($-$$) db 0\n"
+	assembly += "dw 0xAA55"
 
-	# Препроцессор
-	code = preprocessor(code)
-
-	print("Preprocessor:")
-	print(code)
-	print("")
-
-	# Токенизация
-	tokens = tokenize(code)
-
-	print("Tokens:")
-	print(tokens)
-	print("")
-
-	# Построение AST
-	ast = parse(tokens)
-
-	print("AST:")
-	print(json.dumps(ast, indent=4))
-
-	generate_assembly(ast)
-
-	print("Assembly:")
-	print(assembly)
-
-	with open(args.output_file, "w") as file:
-		file.write(assembly)
-
-if __name__ == "__main__":
-	parser = argparse.ArgumentParser()
-
-	parser.add_argument("input_file", type=str, help="Input file")
-	parser.add_argument("-o", "--output_file", type=str, default="output.asm", help="Output file")
-
-	args = parser.parse_args()
-
-	code = load_file(args.input_file)
-
-	compiler(code)
+	return assembly

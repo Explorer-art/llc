@@ -111,10 +111,20 @@ ret
 _main:
 push bp
 mov bp, sp
-mov bx, _5
+mov bx, _2
+push bx
+mov bx, _1
+push bx
+call _add
+; ax = 3
+mov bx, _1
 push bx
 mov bx, _0
 push bx
+call _add
+; ax = 1
+push ax
+push ax
 call _add
 mov sp, bp
 pop bp

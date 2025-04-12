@@ -1,5 +1,7 @@
 import sys
 
+DEBUG = False
+
 # Стандартный шаблон кода на ассемблере
 assembly ="""bits 16
 org 0x7C00
@@ -110,7 +112,8 @@ def unfold_calls(ast, func_id, func_output, original_input):
 
 	function, _func_output = get_internal_function(ast, original_input, func_output)
 
-	print(f"DEBUG: {func_id}:", function, _func_output)
+	if DEBUG:
+		print(f"DEBUG: {func_id}:", function, _func_output)
 
 	if function:
 		for arg in function["input"][::-1]:
@@ -172,8 +175,10 @@ def unfold_calls(ast, func_id, func_output, original_input):
 
 	unfold_calls(ast, func_id, _func_output, original_input)
 
-def generate_assembly(ast):
-	global assembly
+def generate_assembly(ast, debug=False):
+	global assembly, DEBUG
+
+	DEBUG = debug
 
 	# Генерируем код каждой функции
 	for func_id in ast:
@@ -189,7 +194,10 @@ def generate_assembly(ast):
 
 		unfold_calls(ast, func_id, ast[func_id]["output"], ast[func_id]["input"])
 
+	# Заполняем все оставшееся байты нулями
 	assembly += "times 510 - ($-$$) db 0\n"
+	
+	# Сигнатура для MBR
 	assembly += "dw 0xAA55"
 
 	return assembly

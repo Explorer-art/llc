@@ -91,6 +91,20 @@ def get_internal_function(ast, func_input, func_output):
 
 	return function, func_output
 
+def finalize_function(func_id):
+	global assembly
+
+	assembly += "mov sp, bp\n"
+	assembly += "pop bp\n"
+
+	# Если это главная функция (точка входа) то после выполнения программы
+	# отключаем прерывания и останавливаем процессор
+	if func_id == ENTRY_POINT:
+		assembly += "cli\n"
+		assembly += "hlt\n\n"
+	else:
+		assembly += "ret\n\n"
+
 def unfold_calls(ast, func_id, func_output, original_input):
 	global assembly
 
@@ -133,18 +147,24 @@ def unfold_calls(ast, func_id, func_output, original_input):
 				assembly += f"call _{function["id"]}\n"
 
 		if _func_output == "ax":
-			assembly += "mov sp, bp\n"
-			assembly += "pop bp\n"
-
-			# Если это главная функция (точка входа) то после выполнения программы
-			# отключаем прерывания и останавливаем процессор
-			if func_id == ENTRY_POINT:
-				assembly += "cli\n"
-				assembly += "hlt\n\n"
-			else:
-				assembly += "ret\n\n"
-
+			finalize_function(func_id)
 			return
+	else:
+		# Проверяем есть ли значение в аргументах функции, иначе ассоциируем
+		# его с функцией объявленной с помощью def
+		if _func_output in original_input:
+			arg_index = original_input.index(_func_output)
+			arg_offset = 2 + arg_index * len(original_input)
+
+			assembly += f"mov ax, [bp + {DEFAULT_STACK_ARGS_OFFSET + arg_offset}]\n"
+		elif _func_output in ast:
+			if _func_output in EXTERNAL_FUNCTIONS_IDS:
+				assembly += f"mov ax, {_func_output}\n"
+			else:
+				assembly += f"mov ax, _{_func_output}\n"
+
+		finalize_function(func_id)
+		return
 
 	if not "(" in func_output or not ")" in func_output:
 		assembly += "ret\n\n"

@@ -11,4 +11,4 @@ def 5 (f, x) -> (f(f(f(f(f(x))))))
 
 def add (m, n) -> (m(f, n(f, x)))
 
-def main () -> (add(1, 2))
+def main () -> (add(0, 5))

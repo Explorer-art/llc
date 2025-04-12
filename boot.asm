@@ -17,6 +17,9 @@ ret
 _0:
 push bp
 mov bp, sp
+mov ax, [bp + 6]
+mov sp, bp
+pop bp
 ret
 
 _1:
@@ -108,9 +111,9 @@ ret
 _main:
 push bp
 mov bp, sp
-mov bx, _2
+mov bx, _5
 push bx
-mov bx, _1
+mov bx, _0
 push bx
 call _add
 mov sp, bp

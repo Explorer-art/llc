@@ -1,31 +1,35 @@
-def tokenize(code):
-	tokens = []
-	buffer = ""
-	count_parents = 0
+import re
 
-	# Переводим код в массив токенов
-	for char in code:
-		if (char == " " or char == "\n" or char == "\t") and not count_parents:
-			if buffer:
-				tokens.append(buffer)
-				buffer = ""
-		elif char == " " or char == "\n" or char == "\t":
-			continue
-		elif char == "(":
-			count_parents += 1
-			buffer += char
-		elif char == ")":
-			count_parents -= 1
+TOKEN_SPECIFICATION = {
+	"ID": r"[A-Za-z0-9_]+",
+	"LPARENT": r"\(",
+	"RPARENT": r"\)",
+	"ARROW": r"->",
+	"COMMA": r",",
+	"NEW_LINE": r"\n",
+	"MISMATCH": r"."
+}
 
-			buffer += char
+KEYWORDS = [
+	"def"
+]
 
-			if not count_parents:
-				tokens.append(buffer)
-				buffer = ""
-		else:
-			buffer += char
+TOKEN_REGEX = "|".join(f"(?P<{name}>{pattern})" for name, pattern in TOKEN_SPECIFICATION.items())
 
-	if buffer:
-		tokens.append(buffer)
+class Lexer:
+	def __init__(self, code):
+		self.code = code
 
-	return tokens
+	def tokenize(self):
+		tokens = []
+
+		for match in re.finditer(TOKEN_REGEX, self.code):
+			group = match.lastgroup
+			value = match.group()
+
+			if value in KEYWORDS:
+				tokens.append(("KEYWORD", value))
+			elif group != "MISMATCH":
+				tokens.append((group, value))
+
+		return tokens

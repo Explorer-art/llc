@@ -1,46 +1,112 @@
 import sys
+from ast import *
 
-def parse(tokens):
-	ast = {
-		"f": {
-			"input": ["x"],
-			"output": "x"
-		},
-		"x": {
-			"input": None,
-			"output": ""
-		}
-	}
+class Parser:
+	def __init__(self, tokens):
+		self.tokens = tokens
+		self.pos = 0
+		self.entry = None
+		self.functions = []
 
-	i = 0
+	def current(self):
+		"""Получить текущий токен"""
+		return self.tokens[self.pos] if self.pos < len(self.tokens) else None
 
-	while i < len(tokens):
-		if tokens[i] == "def" and len(tokens) > i + 4:
-			func_id = tokens[i + 1]
+	def advance(self):
+		"""Следующий токен"""
+		self.pos += 1
 
-			if func_id in ast:
-				print(f"Error: function '{func_id}' redefined")
-				sys.exit()
+	def expect(self, token_types: List):
+		"""Проверка на соответствие типов"""
+		if self.current() and self.current()[0] in token_types:
+			return self.current()[1]
+		else:
+			raise ParserError(f"expected token type {token_types}", position=self.pos)
 
-			# Убираем скобки
-			func_input = tokens[i + 2][1:][:-1]
+	def get_func_by_name(self, func_name: str) -> Func:
+		"""Получение функции по имени"""
+		for func in self.functions:
+			if func.name == func_name:
+				return func
 
-			# Преобразуем строку в массив
-			if func_input:
-				func_input = func_input.split(",")
-			else:
-				func_input = []
+	def parse(self) -> Program:
+		"""Парсинг всех функций"""
 
-			func_output = tokens[i + 4][1:][:-1]
+		while self.pos < len(self.tokens):
+			if self.current()[0] == "KEYWORD" and self.current()[1] == "def":
+				self.advance()
+				self.functions.append(self.parse_func())
 
-			ast[func_id] = {
-				"input": func_input,
-				"output": func_output
-			}
+			self.advance()
 
-			i += 4
-			continue
+		self.entry = self.get_func_by_name("main")
 
-		i += 1
+		return Program(self.entry, self.functions)
 
-	return ast
+	def parse_func(self) -> Func:
+		"""Парсинг функции"""
+
+		# Парсим название функции
+		self.expect("ID")
+
+		func_name = self.current()[1]
+
+		# Парсим параметры
+		self.advance()
+		self.expect("LPARENT")
+		self.advance()
+
+		params = []
+
+		while self.current()[0] != "RPARENT":
+			if self.current()[0] == "ID":
+				params.append(self.current()[1])
+
+			self.advance()
+
+		# Проверяем "-> ("
+		self.advance()
+		self.expect("ARROW")
+		self.advance()
+		self.expect("LPARENT")
+		self.advance()
+
+		# Парсим тело функции
+		body = self.parse_func_body()
+
+		return Func(func_name, params, body)
+
+	def parse_func_body(self) -> List:
+		"""Парсинг тела функции"""
+		if self.current()[0] == "ID" and self.tokens[self.pos + 1][0] == "LPARENT":
+			return self.parse_call_func()
+		elif self.current()[0] == "ID":
+			return self.parse_func_ptr()
+
+		print("error: expected call func or func ptr")
+		sys.exit()
+
+	def parse_call_func(self) -> CallFunc:
+		"""Парсинг вызова функции"""
+		func_name = self.current()[1]
+
+		self.advance()
+		self.expect("LPARENT")
+		self.advance()
+
+		# Получаем передаваемые аргументы
+		args = []
+
+		while self.current()[0] != "RPARENT":
+			if self.current()[0] == "ID" and self.tokens[self.pos + 1][0] == "LPARENT":
+				args.append(self.parse_call_func())
+			elif self.current()[0] == "ID":
+				args.append(self.parse_func_ptr())
+
+			self.advance()
+
+		return CallFunc(func_name, args)
+
+	def parse_func_ptr(self):
+		"""Парсинг указателя на функцию"""
+		return FuncPtr(self.current()[1])

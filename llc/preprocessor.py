@@ -1,15 +1,19 @@
-def preprocess(code):
-	processed_code = ""
-	lines = code.split("\n")
+class Preprocessor:
+	def __init__(self, code):
+		self.code = code
 
-	# Удаляем все комментарии и удалеяем лишние пробелы
-	for line in lines:
-		comment_index = line.find(";")
+	def preprocess(self) -> str:
+		processed_code = ""
+		lines = self.code.split("\n")
 
-		if comment_index != -1:
-			line = line[:comment_index].rstrip()
+		# Удаляем все комментарии и удалеяем лишние пробелы
+		for line in lines:
+			comment_index = line.find(";")
 
-		if line.strip():
-			processed_code += line + "\n"
+			if comment_index != -1:
+				line = line[:comment_index].rstrip()
 
-	return processed_code
+			if line.strip():
+				processed_code += line + "\n"
+
+		return processed_code

@@ -2,16 +2,16 @@ import os
 import sys
 import json
 import argparse
-from preprocessor import Preprocessor
-from lexer import Lexer
-from parser import Parser
+from preprocessor import preprocess
+from lexer import tokenize
+from parser import parse
+from generator import generate_assembly
 
 DEBUG = True
 
 def compile(code, flags):
 	# Препроцессор
-	preprocessor = Preprocessor(code)
-	code = preprocessor.preprocess()
+	code = preprocess(code)
 
 	if DEBUG:
 		print("Preprocessor:")
@@ -25,8 +25,7 @@ def compile(code, flags):
 		return
 
 	# Токенизация (Лексер)
-	lexer = Lexer(code)
-	tokens = lexer.tokenize()
+	tokens = tokenize(code)
 
 	if DEBUG:
 		print("Tokens:")
@@ -34,22 +33,21 @@ def compile(code, flags):
 		print("")
 
 	# Построение AST (Парсер)
-	ast_parser = Parser(tokens)
-	ast = ast_parser.parse()
+	ast = parse(tokens)
 
 	if DEBUG:
 		print("AST:")
-		print(ast)
+		print(json.dumps(ast, indent=4))
 
 	# Генерация ассемблерного кода
-	# assembly = generate_assembly(ast, DEBUG)
+	assembly = generate_assembly(ast, DEBUG)
 
-	# if DEBUG:
-	# 	print("Assembly:")
-	# 	print(assembly)
+	if DEBUG:
+		print("Assembly:")
+		print(assembly)
 
-	# with open(args.output_file, "w") as file:
-	# 	file.write(assembly)
+	with open(args.output_file, "w") as file:
+		file.write(assembly)
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()

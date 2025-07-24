@@ -3,7 +3,7 @@ import sys
 DEBUG = False
 
 # Стандартный шаблон кода на ассемблере
-assembly ="""bits 16
+assembly = """bits 16
 org 0x7C00
 
 %define x 0

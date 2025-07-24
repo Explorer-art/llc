@@ -1,10 +1,11 @@
 import re
 
 TOKEN_SPECIFICATION = {
-	"ID": r"[A-Za-z0-9_]+",
+	"ARROW": r"->",
+	"CALL_FUNC_ID": r"[A-Za-z0-9_+\-/*]+(?=\()",
+	"ID": r"[A-Za-z0-9_+\-/*]+",
 	"LPARENT": r"\(",
 	"RPARENT": r"\)",
-	"ARROW": r"->",
 	"COMMA": r",",
 	"NEW_LINE": r"\n",
 	"MISMATCH": r"."

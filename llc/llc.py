@@ -5,6 +5,7 @@ import argparse
 from preprocessor import Preprocessor
 from lexer import Lexer
 from parser import Parser
+from arch.x86 import LL16_Generator
 
 DEBUG = True
 
@@ -40,16 +41,18 @@ def compile(code, flags):
 	if DEBUG:
 		print("AST:")
 		print(ast)
+		print("")
 
 	# Генерация ассемблерного кода
-	# assembly = generate_assembly(ast, DEBUG)
+	generator = LL16_Generator(ast)
+	assembly = generator.generate()
 
-	# if DEBUG:
-	# 	print("Assembly:")
-	# 	print(assembly)
+	if DEBUG:
+		print("Assembly:")
+		print(assembly)
 
-	# with open(args.output_file, "w") as file:
-	# 	file.write(assembly)
+	with open(args.output_file, "w") as file:
+		file.write(assembly)
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()

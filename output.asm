@@ -1,6 +1,4 @@
 bits 16
-org 0x7C00
-
 %define x 0
 
 jmp _main
@@ -15,11 +13,7 @@ pop bp
 ret
 
 _0:
-push bp
-mov bp, sp
-mov ax, [bp + 6]
-mov sp, bp
-pop bp
+mov ax, x
 ret
 
 _1:
@@ -35,73 +29,33 @@ ret
 _2:
 push bp
 mov bp, sp
+push bp
+mov bp, sp
 mov bx, [bp + 6]
 push bx
 call [bp + 4]
+mov sp, bp
+pop bp
 push ax
 call [bp + 4]
 mov sp, bp
 pop bp
 ret
 
-_3:
+_+:
 push bp
 mov bp, sp
-mov bx, [bp + 6]
-push bx
-call [bp + 4]
-push ax
-call [bp + 4]
-push ax
-call [bp + 4]
-mov sp, bp
-pop bp
-ret
-
-_4:
 push bp
 mov bp, sp
-mov bx, [bp + 6]
+mov bx, [bp + 10]
 push bx
-call [bp + 4]
-push ax
-call [bp + 4]
-push ax
-call [bp + 4]
-push ax
-call [bp + 4]
-mov sp, bp
-pop bp
-ret
-
-_5:
-push bp
-mov bp, sp
-mov bx, [bp + 6]
-push bx
-call [bp + 4]
-push ax
-call [bp + 4]
-push ax
-call [bp + 4]
-push ax
-call [bp + 4]
-push ax
-call [bp + 4]
-mov sp, bp
-pop bp
-ret
-
-_add:
-push bp
-mov bp, sp
-mov bx, x
-push bx
-mov bx, f
+mov bx, [bp + 8]
 push bx
 call [bp + 6]
+mov sp, bp
+pop bp
 push ax
-mov bx, f
+mov bx, [bp + 8]
 push bx
 call [bp + 4]
 mov sp, bp
@@ -115,19 +69,10 @@ mov bx, _2
 push bx
 mov bx, _1
 push bx
-call _add
-mov bx, _1
-push bx
-mov bx, _0
-push bx
-call _add
-push ax
-push ax
-call _add
+call _+
 mov sp, bp
 pop bp
-cli
-hlt
+ret
 
 times 510 - ($-$$) db 0
 dw 0xAA55

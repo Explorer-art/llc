@@ -31,7 +31,6 @@ class Parser:
 
 	def parse(self) -> Program:
 		"""Парсинг всех функций"""
-
 		while self.pos < len(self.tokens):
 			if self.current()[0] == "KEYWORD" and self.current()[1] == "def":
 				self.advance()
@@ -47,7 +46,7 @@ class Parser:
 		"""Парсинг функции"""
 
 		# Парсим название функции
-		self.expect("ID")
+		self.expect("CALL_FUNC_ID")
 
 		func_name = self.current()[1]
 
@@ -78,7 +77,7 @@ class Parser:
 
 	def parse_func_body(self) -> List:
 		"""Парсинг тела функции"""
-		if self.current()[0] == "ID" and self.tokens[self.pos + 1][0] == "LPARENT":
+		if self.current()[0] == "CALL_FUNC_ID":
 			return self.parse_call_func()
 		elif self.current()[0] == "ID":
 			return self.parse_func_ptr()
@@ -98,7 +97,7 @@ class Parser:
 		args = []
 
 		while self.current()[0] != "RPARENT":
-			if self.current()[0] == "ID" and self.tokens[self.pos + 1][0] == "LPARENT":
+			if self.current()[0] == "CALL_FUNC_ID":
 				args.append(self.parse_call_func())
 			elif self.current()[0] == "ID":
 				args.append(self.parse_func_ptr())
@@ -107,6 +106,10 @@ class Parser:
 
 		return CallFunc(func_name, args)
 
-	def parse_func_ptr(self):
+	def parse_func_ptr(self) -> str:
 		"""Парсинг указателя на функцию"""
 		return FuncPtr(self.current()[1])
+
+class ParserError(Exception):
+	def __init__(self, message, position=None):
+		super().__init__(f"{message} at token position {position}")

@@ -21,16 +21,16 @@ class Func(ASTNode):
 		return f"Func {self.name} ({", ".join(str(param) for param in self.params)}) {{ {str(self.body)} }}"
 
 class CallFunc(ASTNode):
-	def __init__(self, func_name: str, args: List):
-		self.func_name = func_name
+	def __init__(self, name: str, args: List):
+		self.name = name
 		self.args = args
 
 	def __repr__(self):
-		return f"{self.func_name}({", ".join(str(arg) for arg in self.args)})"
+		return f"{self.name}({", ".join(str(arg) for arg in self.args)})"
 
 class FuncPtr(ASTNode):
-	def __init__(self, func_name: str):
-		self.func_name = func_name
+	def __init__(self, name: str):
+		self.name = name
 
 	def __repr__(self):
-		return f"{self.func_name}"
+		return f"{self.name}"

@@ -48,13 +48,13 @@ ret
 _sum:
 push bp
 mov bp, sp
-mov bx, [bp + 10]
+mov bx, x
 push bx
-mov bx, [bp + 8]
+mov bx, f
 push bx
 call [bp + 6]
 push ax
-mov bx, [bp + 8]
+mov bx, f
 push bx
 call [bp + 4]
 mov sp, bp
@@ -64,10 +64,6 @@ ret
 _main:
 push bp
 mov bp, sp
-mov bx, x
-push bx
-mov bx, f
-push bx
 mov bx, _2
 push bx
 mov bx, _1
